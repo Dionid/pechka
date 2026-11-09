@@ -170,6 +170,81 @@ jq -e 'length == 1
   || { echo "--description-only: wrong description in the PR" >&2; jq -r '.[0].body' "$tmp/gh-state/mrs.json" >&2; exit 1; }
 grep -qx -- 'edit' "$tmp/gh-state/log"
 
+# --existing-mr --mr-title --description-only (no description file): only the
+# title changes — body kept, nothing committed or pushed; --draft-style prefix
+# is not doubled. Without --mr-title the title stays.
+before="$(git -C "$checkout" rev-parse HEAD)"
+pushes_before="$(wc -l < "$tmp/pushes")"
+body_before="$(jq -r '.[0].body' "$tmp/gh-state/mrs.json")"
+title_only="$({
+  cd "$workspace"
+  WORKSPACE_COORDINATION_ROOT="$workspace" PATH="$tmp/bin:$PATH" \
+    bash "$skill/run.sh" \
+      --worktree "$checkout" --repo project --existing-mr \
+      --mr-title "Draft: Renamed PR" --description-only 2>"$tmp/title-only.err"
+})" || { cat "$tmp/title-only.err" >&2; echo "--mr-title --description-only failed" >&2; exit 1; }
+grep -q '^MR_STATE=existing$' <<<"$title_only"
+[[ "$(git -C "$checkout" rev-parse HEAD)" == "$before" ]] || { echo "title-only made a commit" >&2; exit 1; }
+[[ "$(wc -l < "$tmp/pushes")" == "$pushes_before" ]] || { echo "title-only pushed" >&2; exit 1; }
+[[ "$(jq -r '.[0].title' "$tmp/gh-state/mrs.json")" == "Draft: Renamed PR" ]] \
+  || { echo "title-only: wrong title" >&2; jq -r '.[0].title' "$tmp/gh-state/mrs.json" >&2; exit 1; }
+[[ "$(jq -r '.[0].body' "$tmp/gh-state/mrs.json")" == "$body_before" ]] || { echo "title-only changed the body" >&2; exit 1; }
+
+# Title-only update with a resolved spec (spec_state ok): the spec block must
+# not become the PR body — with no description file the body is untouched.
+mkdir -p "$workspace/.claude/skills/spec-trace"
+cat > "$workspace/.claude/skills/spec-trace/spec-ref.sh" <<'EOS'
+#!/usr/bin/env bash
+if [[ " $* " == *" --block "* ]]; then printf 'SPEC BLOCK\n'; exit 0; fi
+printf 'SPEC_STATE=ok\nSPEC_CHANGE=c\nSPEC_PROJECT=spec\nSPEC_BRANCH=b\n'
+EOS
+chmod +x "$workspace/.claude/skills/spec-trace/spec-ref.sh"
+run_title() {
+  (
+    cd "$workspace"
+    WORKSPACE_COORDINATION_ROOT="$workspace" PATH="$tmp/bin:$PATH" \
+      bash "$skill/run.sh" --worktree "$checkout" --repo project --existing-mr \
+        --mr-title "$1" --description-only >/dev/null 2>"$tmp/title-spec.err"
+  ) || { cat "$tmp/title-spec.err" >&2; echo "title update failed: $1" >&2; exit 1; }
+}
+body_before="$(jq -r '.[0].body' "$tmp/gh-state/mrs.json")"
+run_title "Spec title"
+jq -e '.[0].title == "Draft: Spec title"' "$tmp/gh-state/mrs.json" >/dev/null \
+  || { echo "draft PR title not prefixed once" >&2; exit 1; }
+[[ "$(jq -r '.[0].body' "$tmp/gh-state/mrs.json")" == "$body_before" ]] \
+  || { echo "title-only with spec ok changed the body" >&2; exit 1; }
+run_title "DRAFT: Shouting"
+jq -e '.[0].title == "DRAFT: Shouting"' "$tmp/gh-state/mrs.json" >/dev/null \
+  || { echo "DRAFT: was doubled" >&2; exit 1; }
+# A non-draft PR gets the title as given, no prefix.
+jq '.[0].isDraft = false' "$tmp/gh-state/mrs.json" > "$tmp/mrs.nd" && mv "$tmp/mrs.nd" "$tmp/gh-state/mrs.json"
+run_title "Ready title"
+jq -e '.[0].title == "Ready title"' "$tmp/gh-state/mrs.json" >/dev/null \
+  || { echo "non-draft PR title was prefixed" >&2; exit 1; }
+jq '.[0].isDraft = true' "$tmp/gh-state/mrs.json" > "$tmp/mrs.nd" && mv "$tmp/mrs.nd" "$tmp/gh-state/mrs.json"
+rm -rf "$workspace/.claude"
+
+# Title together with a description: both change.
+{
+  cd "$workspace"
+  WORKSPACE_COORDINATION_ROOT="$workspace" PATH="$tmp/bin:$PATH" \
+    bash "$skill/run.sh" \
+      --worktree "$checkout" --repo project --existing-mr \
+      --mr-title "Both changed" --mr-description-file "$tmp/readback" --description-only >/dev/null 2>&1
+}
+jq -e '.[0].title == "Draft: Both changed" and (.[0].body | contains("Только описание."))' \
+  "$tmp/gh-state/mrs.json" >/dev/null || { echo "title+description not both updated" >&2; exit 1; }
+
+# --description-only with neither a description nor a title is refused.
+if (
+  cd "$workspace"
+  WORKSPACE_COORDINATION_ROOT="$workspace" PATH="$tmp/bin:$PATH" \
+    bash "$skill/run.sh" --worktree "$checkout" --repo project --existing-mr --description-only
+) >/dev/null 2>&1; then
+  echo "--description-only with nothing to update was accepted" >&2
+  exit 1
+fi
+
 # --description-only commits nothing, so paths or a message file are refused.
 if (
   cd "$workspace"

@@ -11,8 +11,8 @@ Usage:
          [--spec-change <name>] [--no-spec-link] [--no-task-link]
          [--transport auto|https]
          -- <path>...
-  run.sh --worktree <path> --repo <name> --existing-mr
-         --mr-description-file <path> --description-only
+  run.sh --worktree <path> --repo <name> --existing-mr --description-only
+         [--mr-description-file <path>] [--mr-title <title>]
          [--spec-change <name>] [--no-spec-link] [--no-task-link]
 
 Stages selected paths, commits, pushes over HTTPS with GITHUB_TOKEN and
@@ -38,12 +38,17 @@ What happens to the PR is settled before anything is staged or committed:
                           one. No open PR found -> MR_STATE=not-created
   --no-mr                 commit and push only; print the prefilled "new PR" URL.
                           Excludes the other two
-  --description-only      with --existing-mr and --mr-description-file: only
-                          replace the open PR's description — no paths, no
+  --description-only      with --existing-mr and --mr-description-file and/or
+                          --mr-title: only replace the open PR's description
+                          and/or title — no paths, no
                           --message-file, nothing staged, committed or pushed.
                           No open PR -> MR_STATE=not-created, exit 1
 
-  --mr-title              PR title (default: the commit subject)
+  --mr-title              PR title (default: the commit subject). With
+                          --existing-mr: also replace the open PR's title ("Draft: "
+                          is added, case-insensitively once, only if the PR is
+                          a draft; a non-draft keeps the title as given); without it the
+                          existing title is kept
   --draft                 keep the default: create the PR as a draft
   --no-coauthor           do not append the Co-Authored-By trailer
   --spec-change           the change name, when the task has more than one active
@@ -62,6 +67,7 @@ worktree=""
 repo=""
 message_file=""
 mr_title=""
+mr_title_given=0
 mr_description_file=""
 existing_mr=0
 with_coauthor=1
@@ -89,6 +95,7 @@ while (($# > 0)); do
       ;;
     --mr-title)
       mr_title="${2:-}"
+      mr_title_given=1
       shift 2
       ;;
     --mr-description-file)
@@ -158,8 +165,8 @@ esac
 if ((description_only)); then
   # Nothing is committed, so there is nothing to stage and no message: a path or
   # a message file here means the caller expected a commit that will not happen.
-  if [[ -z "$worktree" || -z "$repo" || -z "$mr_description_file" ]] || ((existing_mr == 0)); then
-    echo "error: --description-only needs --worktree, --repo, --existing-mr and --mr-description-file" >&2
+  if [[ -z "$worktree" || -z "$repo" ]] || [[ -z "$mr_description_file" && -z "$mr_title" ]] || ((existing_mr == 0)); then
+    echo "error: --description-only needs --worktree, --repo, --existing-mr and --mr-description-file or --mr-title" >&2
     usage >&2
     exit 1
   fi
@@ -524,12 +531,25 @@ report() {
 if [[ -z "$mr_title" ]]; then
   mr_title="$commit_subject"
 fi
+# Only an explicit --mr-title replaces the title of an existing PR.
+mr_title_update=0
+if ((existing_mr && mr_title_given)) && [[ -n "$mr_title" ]]; then
+  mr_title_update=1
+fi
 
-if ((draft)); then
-  case "$mr_title" in
-    Draft:*|draft:*) ;;
-    *) mr_title="Draft: $mr_title" ;;
+# Prefix a title with "Draft: " unless it already starts with one, in any case.
+draft_prefixed() {
+  case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+    draft:*) printf '%s' "$1" ;;
+    *) printf 'Draft: %s' "$1" ;;
   esac
+}
+
+# The title as given: an existing PR gets the prefix only if it is a draft,
+# which is known after the lookup; creation always makes a draft.
+mr_title_plain="$mr_title"
+if ((draft)); then
+  mr_title="$(draft_prefixed "$mr_title")"
 fi
 
 # Only a run with a description file sends a description, and it was checked
@@ -573,7 +593,9 @@ fi
 # The spec block goes at the top of the description: whoever opens this PR — a
 # reviewer or an agent handed nothing but the link — has to see
 # what the code was written against before they read the diff.
-if [[ "$spec_state" == "ok" ]]; then
+# Only when a description is sent, like the task block: with no description
+# file the PR body is never touched, so a spec block alone must not replace it.
+if [[ "$spec_state" == "ok" && -n "$mr_description_file" ]]; then
   spec_block="$("$spec_ref_sh" "${spec_args[@]}" --block 2>/dev/null || true)"
 
   if [[ -n "$spec_block" ]]; then
@@ -649,6 +671,21 @@ if ((lookup_rc == 0)); then
       fi
       echo "warning: the push reached !$MR_IID, but its description was not updated" >&2
       description_not_sent_warning
+    fi
+  fi
+
+  if ((mr_title_update)); then
+    new_title="$mr_title_plain"
+    if [[ "$MR_IS_DRAFT" == 1 ]]; then
+      new_title="$(draft_prefixed "$mr_title_plain")"
+    fi
+    if ! gl_mr_update_title "$worktree" "$MR_IID" "$new_title"; then
+      if ((description_only)); then
+        echo "error: gh did not update the title of !$MR_IID" >&2
+        report "existing" "$open_mr_url" "$open_mr_target"
+        exit 1
+      fi
+      echo "warning: the push reached !$MR_IID, but its title was not updated" >&2
     fi
   fi
 

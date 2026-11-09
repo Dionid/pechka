@@ -6,6 +6,12 @@
 - Новый PR: `--message-file`, `--mr-description-file`, пути после `--`.
 - Существующий PR: `--existing-mr`, необязательное описание.
 - Только body: `--existing-mr --mr-description-file --description-only`.
+- Заголовок существующего PR: `--existing-mr --mr-title <title>` (вместе с push
+  или с `--description-only` — только заголовок, с описанием или без). Без
+  `--mr-title` заголовок не меняется; `Draft: ` добавляется только если PR действительно draft (`isDraft`),
+  без удвоения и без учёта регистра (`DRAFT:` тоже считается); у не-draft
+  заголовок ставится как задан. Без файла описания body PR не трогается
+  (spec-блок отдельно не отправляется).
 - Только commit/push: `--no-mr`.
 - Транспорт: `--transport auto|https`, оба значения означают HTTPS.
 
@@ -23,7 +29,7 @@ staging. Commit hooks сохраняются. Запросы gh получают
 `unconfirmed` — сбой lookup, `create-failed` — неудавшееся создание.
 `PREFILL_URL` — только форма сравнения веток, не PR. Пустой токен останавливает
 run с exit 3 и `NEXT=github-login`; ошибки доступа/сети дают ненулевой exit.
-Описание без открытого PR в режиме `--description-only` даёт exit 1.
+Описание или заголовок без открытого PR в режиме `--description-only` дают exit 1.
 
 Цель PR (`TARGET_BRANCH` нового PR) — `branch` репозитория из `repos.json`
 (`main` без записи), а для репозитория с `"personalBase": true` при заданном

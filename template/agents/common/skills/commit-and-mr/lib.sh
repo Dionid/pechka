@@ -523,10 +523,10 @@ gl_gh() { local checkout="$1"; shift; (cd "$checkout" && gl_gh_env gh "$@"); }
 gl_mr_find() {
   local checkout="$1" branch="$2" repo json pick state=open
   [[ "${3-}" != --all ]] || state=all
-  MR_IID=""; MR_URL=""; MR_STATE=""; MR_TARGET=""; MR_TITLE=""; MR_DESCRIPTION=""
+  MR_IID=""; MR_URL=""; MR_STATE=""; MR_TARGET=""; MR_TITLE=""; MR_DESCRIPTION=""; MR_IS_DRAFT=0
   repo="$(gl_gh_repo "$checkout")" || return 2
   json="$(gl_gh "$checkout" pr list -R "$repo" --head "$branch" --state "$state" \
-    --json number,url,state,baseRefName,title,body --limit 100)" || return 2
+    --json number,url,state,baseRefName,title,body,isDraft --limit 100)" || return 2
   if ! jq -se --arg repo "$repo" '
     length == 1 and (.[0] | type == "array" and all(.[];
       type == "object" and
@@ -547,6 +547,7 @@ gl_mr_find() {
   MR_TARGET="$(jq -r "$pick | .baseRefName // empty" <<<"$json")"
   MR_TITLE="$(jq -r "$pick | .title // empty" <<<"$json")"
   MR_DESCRIPTION="$(jq -r "$pick | .body // empty" <<<"$json")"
+  [[ "$(jq -r "$pick | .isDraft // false" <<<"$json")" != true ]] || MR_IS_DRAFT=1
   [[ "$MR_IID" =~ ^[1-9][0-9]*$ && "$MR_URL" == "https://$repo/pull/$MR_IID" ]] || return 2
 }
 gl_mr_create() {
@@ -570,6 +571,12 @@ gl_mr_update_description() {
   body="$(mktemp)"; printf '%s\n' "$description" > "$body"
   gl_gh "$checkout" pr edit "$iid" -R "$repo" --body-file "$body" >/dev/null || rc=$?
   rm -f "$body"
+  return "$rc"
+}
+gl_mr_update_title() {
+  local checkout="$1" iid="$2" title="${3//$'\n'/ }" repo rc=0
+  repo="$(gl_gh_repo "$checkout")" || return 1
+  gl_gh "$checkout" pr edit "$iid" -R "$repo" --title "$title" >/dev/null || rc=$?
   return "$rc"
 }
 

@@ -54,9 +54,12 @@ case "$cmd" in
     ;;
   'pr edit')
     [[ "${FAKE_GH_UPDATE:-ok}" == ok ]] || { echo 'HTTP 403' >&2; exit 1; }
-    jq --arg p "$project" --argjson i "$iid" --rawfile d "$body" \
+    [[ -z "$body" ]] || jq --arg p "$project" --argjson i "$iid" --rawfile d "$body" \
       'map(if .project == $p and .number == $i then .body=($d|sub("\n$";"")) else . end)' "$mrs" > "$mrs.tmp"
-    mv "$mrs.tmp" "$mrs"
+    [[ -z "$body" ]] || mv "$mrs.tmp" "$mrs"
+    [[ -z "$title" ]] || jq --arg p "$project" --argjson i "$iid" --arg t "$title" \
+      'map(if .project == $p and .number == $i then .title=$t else . end)' "$mrs" > "$mrs.tmp"
+    [[ -z "$title" ]] || mv "$mrs.tmp" "$mrs"
     ;;
   'auth git-credential') exit 1 ;;
   *) echo "unsupported gh command: $cmd" >&2; exit 2 ;;

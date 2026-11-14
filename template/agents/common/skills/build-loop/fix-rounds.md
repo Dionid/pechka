@@ -92,6 +92,12 @@ one option per finding. More than four → the numbered list above and "назо
 the user is ruling on a technical call, and a list without recommendations makes
 them do the reading you already did.
 
+In an autonomous Track C ([SKILL.md](SKILL.md#autonomous-track-c)) there is no
+ask: the same list, with the same recommendations, is ruled by you — each
+Should-fix by the reviewer's recommendation, each spec contradiction or
+spec-level Blocking by a `spec-loop` re-draft as a «Принятое решение» — and goes
+into the ledger and the Draft PR description instead of in front of the user.
+
 ## After the ruling
 
 - **Picked** → one dispatch to the affected groups, exactly like round 1 (resume
@@ -121,7 +127,8 @@ to its barrier without stopping again.
 
 Two things do not wait for the close, and they are the ones above: a **Blocking**
 that survived three rounds, and a finding that **contradicts the spec**.
-Both go to the user immediately.
+Both go to the user immediately — in an autonomous Track C you rule them
+immediately instead, unless only the user can close them.
 
 A phase-2 Should-fix that is really about the *implementation* rather than the
 suites is worth flagging in the ledger as such when you record it — at the close

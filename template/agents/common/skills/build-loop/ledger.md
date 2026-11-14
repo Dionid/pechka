@@ -54,6 +54,33 @@ the `## Спека` section ends:
 - ПАКЕТ ГОТОВ → build loop открыт
 ```
 
+**Autonomous Track C** ([spec-loop](../spec-loop/SKILL.md#autonomous-track-c)).
+The `Вопросы` line says no question was asked, and the blocking ones are listed
+as decisions, each with the why and the rejected alternative, and where it is
+written:
+
+```markdown
+- Вопросы — автономный Track C: пользователю не задавались; 2 блокирующих
+  решены, 4 неблокирующих → допущения в proposal.md/design.md
+- Принятые решения:
+  - модель данных — отдельная таблица (рекомендация обоих; дешевле откатить,
+    чем колонку в горячей таблице); альтернатива — jsonb-колонка → design.md D1, Фича
+  - существующие строки — не трогаем, backfill отдельной задачей (обратимо);
+    альтернатива — миграция в этом change → proposal.md, Фича
+```
+
+A decision missing from this list, or not labelled «Принятое решение» in the
+artefact, is a silent one — a red flag of the spec loop.
+
+The build loop's rulings in that mode go under the wave, one line each:
+
+```markdown
+- Решение (автономный Track C): G2 fee.repo.ts:41 N+1 — править (рекомендация
+  ревьюера: дёшево, один join)
+- Решение (автономный Track C): находка против спеки min-fee — меняется спека,
+  re-draft через spec-loop → design.md D3 «Принятое решение»
+```
+
 A `Ревью спеки до кода: да — по просьбе…` line with no `ПРИНЯТ` after it is a
 bundle waiting on the user: dispatch nothing. A request for spec/tasks artefacts
 together with the implementation is not such a request — no line, no stop.

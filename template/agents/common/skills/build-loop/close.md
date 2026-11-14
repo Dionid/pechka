@@ -44,7 +44,10 @@ One list, assembled the same way as a gate list ([fix-rounds.md](fix-rounds.md))
   is you overturning it a second time.
 
 What they pick is dispatched as one round, closed by one scoped re-review, exactly
-like a gate's. Then the commits.
+like a gate's. Then the commits. In an autonomous Track C
+([SKILL.md](SKILL.md#autonomous-track-c)) you rule this list yourself, by each
+reviewer's recommendation, and every ruling — picked or declined, with its
+reason — goes into the Draft PR description and the close report.
 
 ## 3. Commits, in order
 

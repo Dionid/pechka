@@ -100,7 +100,8 @@ Where it goes depends on the phase, and that is §4b.
 
 **One exception, and it is not negotiable: a finding that contradicts the
 change's spec stops the round.** No builder can settle it — put the finding and the spec
-text in front of the user and ask which governs, while everything else dispatches.
+text in front of the user and ask which governs, while everything else dispatches
+(in an [autonomous Track C](#autonomous-track-c) you decide it yourself).
 
 Rounds `R = 1, 2, 3`, **counted per phase per wave**, not per group — resume the
 builders in round 1, fresh ones at `strong/high` in rounds 2 and 3, each getting
@@ -134,6 +135,27 @@ collected and ruled on **once, at the close** (§7), where the user sees them
 together with the final full-pass findings. The list's shape, how to ask, and what
 to do with each answer: [fix-rounds.md](fix-rounds.md).
 
+### Autonomous Track C
+
+When the team's `AGENTS.md` declares **«автономный Track C»**
+([spec-loop](../spec-loop/SKILL.md#autonomous-track-c)), none of the rulings
+above stops the loop and nothing goes through `AskUserQuestion`. You rule
+instead, and never silently:
+
+- **every Should-fix** — at the wave gate and at the close — by the reviewer's
+  recommendation (yours where it has none); picked ones dispatch exactly as a
+  user's pick would, declined ones are parked;
+- **a finding that contradicts the spec**, and a Blocking that survived three
+  rounds as a spec or design problem — you decide which governs; a spec change
+  goes back through `spec-loop` (re-draft) as a labelled «Принятое решение»;
+- **each ruling** — one ledger line with the reason ([ledger.md](ledger.md)),
+  listed in the Draft PR description and the close report.
+
+Still asked: missing access or credentials, executing an irreversible or
+production operation, a contradiction in the request no decision resolves, and a
+ruled fix that failed its one round. Without the switch, everything above is
+unchanged.
+
 ## 5. Phase 2 — the tests, then their review
 
 **The entry condition, and it is the one that gets rushed: every finding of phase 1
@@ -154,7 +176,10 @@ downstream starts until the test review has closed.
 
 ## 6. What reaches the user
 
-The user hears from you at these moments and no others:
+The user hears from you at these moments and no others — in an
+[autonomous Track C](#autonomous-track-c) only at 3–4 when no decision of yours
+closes it, and at the close as the Draft PR with your rulings listed, not as a
+question:
 
 1. **the ruling gate** — once per wave, between the phases, per §4b. The one stop
    the loop makes by design: one per wave, three on a three-wave change;
@@ -178,7 +203,8 @@ Five steps, in this order, detailed in [close.md](close.md):
    the change as a whole. A single-wave change skips it;
 2. **the closing ruling** — every phase-2 Should-fix of every wave, plus the full
    pass's own findings, in one list. The Blocking of the full pass goes through §4
-   first; this is what the phase-2 gate was traded away for, so it is not optional;
+   first; this is what the phase-2 gate was traded away for, so it is not optional
+   (autonomous Track C: ruled by you, listed in the PR description);
 3. **`commit-and-mr` for the code repos**;
 4. **the spec-trace skill (if this workspace has one, e.g. `.claude/skills/spec-trace/`)
    over `<task>`**, then `commit-and-mr` for `<spec-repo>` — the trace can only

@@ -1,6 +1,6 @@
 ---
 name: spec-loop
-description: Провести шаги 1-4 спек-цикла для изменения, которому нужна согласованная спека до кода — параллельная разведка analyst+architect, только блокирующие вопросы пользователю, затем proposal → delta specs → design → tasks, написанные одним заходом с cross-read между ролями и передачей в build-loop в том же ходе; остановка на одобрение спеки — только по явной просьбе пользователя. Использовать, когда изменению нужна спека до кода.
+description: Провести шаги 1-4 спек-цикла для изменения, которому нужна спека до кода — параллельная разведка analyst+architect, только блокирующие вопросы пользователю (в автономном Track C их решает оркестратор и записывает «Принятым решением»), затем proposal → delta specs → design → tasks, написанные одним заходом с cross-read между ролями и передачей в build-loop в том же ходе; остановка на одобрение спеки или Фичи — только по явной просьбе пользователя. Использовать, когда изменению нужна спека до кода.
 ---
 
 # The spec loop
@@ -9,9 +9,10 @@ Steps 1 through 4 of a spec-first change: everything before a line of code
 exists. [`build-loop`](../build-loop/SKILL.md) takes over at step 5, and it
 starts only from a completed spec bundle (validated, cross-read and coverage
 closed) recorded in the ledger. By default nobody approves the spec: only the
-blocking questions of step 2 stop the loop, and the complete bundle goes to
-`build-loop` in the same turn. A review stop before code is an explicit opt-in
-(§6); a spec without implementation is
+blocking questions of step 2 stop the loop — and in an
+[autonomous Track C](#autonomous-track-c) not even they — and the complete
+bundle goes to `build-loop` in the same turn. A review stop before code is an
+explicit opt-in (§6); a spec without implementation is
 [Track A](#track-a--a-spec-without-implementation) — approval mandatory, no `build-loop`.
 
 Resolve the destination through the **`spec`** skill before dispatching either
@@ -27,6 +28,11 @@ a broken manifest, but a subject spanning them means stop, show the candidates,
 ask the user. Never write into both.
 
 If the workspace has the **`work-items`** skill, the change must record its task per that skill (`task: <task>` in `.openspec.yaml`, a `Задача:` link under the proposal H1).
+The Feature and its Tasks are **never agreed with the user** on Track C: the loop
+writes the Feature description itself, splits it into Tasks, links each to its
+Project or Product (and the Feature), and records in the Feature and the spec the
+decisions and defaults it took — through that skill, after step 2. Only the
+opt-in of §6 shows the Feature to the user before code.
 
 You are the **orchestrator**, and here that means something specific: **you are
 the only participant with a voice.** The two agents cannot talk to the user, so
@@ -107,9 +113,28 @@ costs — "additive column now, backfill later" against "one destructive
 migration" is a decision the user can only make with the price attached.
 
 **Do not start writing before the blocking answers are in**; with none, go
-straight to step 3. In teams that use work-items, the Feature and its Tasks are
-agreed in chat at this same stop. Without the opt-in of §6 it is the loop's only
-user gate.
+straight to step 3. Without the opt-in of §6 it is the loop's only user gate —
+and in an autonomous Track C there is none.
+
+### Autonomous Track C
+
+When the team's `AGENTS.md` declares **«автономный Track C»** in «Правила
+команды», step 2 does not stop. The agents still list every blocking question,
+each with a recommended answer and its cost; **you decide each one** from those
+recommendations — when they are equal, the cheapest reversible option — and the
+decision is never silent: it is written as a labelled **«Принятое решение»**
+(the decision, why, the rejected alternative) in `proposal.md` or `design.md`,
+in the Feature if there is one, and listed in the ledger ([ledger.md](../build-loop/ledger.md)).
+Analyst and architect get the decisions in the prompt that replaces the user's
+answers ([prompts.md](prompts.md)). Choosing a design — a non-additive
+migration, a breaking contract change with its release order — is such a
+decision too; what is asked is *executing* an irreversible or production
+operation. The user then sees only the final Draft PR and true blockers:
+missing access or credentials, executing an irreversible or production
+action, a contradiction in the request that no default resolves — those are
+still asked. The same switch removes the user gates of
+[`build-loop`](../build-loop/SKILL.md#autonomous-track-c). Without the switch,
+the blocking questions go to the user as above.
 
 ## 3–5. The artefacts, drafted together, handed off once
 
@@ -135,7 +160,10 @@ once — and the author is allowed to push back with a technical reason instead
 of complying. A finding against `proposal.md` or the delta specs raised during
 the feasibility pass can still mean redrafting them before design starts; a
 finding against design/tasks from the coverage pass can mean redrafting those
-before the bundle is closed — all inside this one pass.
+before the bundle is closed — all inside this one pass. A data-model or scope
+question that surfaces only here goes to the user like a step-2 one — in an
+autonomous Track C you decide it the same way, as a «Принятое решение» in the
+artefact and the ledger's list.
 
 **`openspec validate` after every write**, and read its output. An artefact
 that does not validate is not ready to hand to `build-loop`.
@@ -164,8 +192,9 @@ ask the user to approve it**: you accept it yourself. Write to the ledger's
 findings from both cross-reads and how each was closed, tell the user in one
 line that the build starts, and **start `build-loop` in the same turn**.
 
-**The review stop is opt-in.** Only when the user explicitly asked to see or
-approve the spec before code does the loop stop here: the ledger gets
+**The review stop is opt-in, in both modes.** Only when the user explicitly
+asked to write, clarify or show the spec — or the Feature — before code does the
+loop stop here, and it does exactly what was asked: the ledger gets
 `Ревью спеки до кода: да — по просьбе пользователя «<quote>»`, the bundle goes
 to the user, and only after their «ок» come `ПРИНЯТ пользователем — <quote, date>`
 and then the `ПАКЕТ ГОТОВ` line. A request for spec/tasks artefacts together
@@ -200,12 +229,18 @@ user for a new approval. A request to implement the spec is Track C.
 ## Red flags
 
 - **an agent's question answered by you instead of by the user** — the one failure
-  this whole loop is arranged to prevent
-- writing `proposal.md` before the blocking questions came back
+  this whole loop is arranged to prevent; in an autonomous Track C you do decide,
+  but only as a labelled «Принятое решение» in the artefact and the ledger
+- writing `proposal.md` before the blocking questions came back (autonomous:
+  before each was decided and recorded)
 - asking the user to approve `proposal.md`, the delta specs, or the bundle
   without their explicit opt-in — a spec/tasks request with implementation is none
 - a non-blocking question put to the user instead of a labelled assumption, or a
-  blocking one (the data model) quietly settled as an assumption
+  blocking one (the data model) quietly settled as an assumption — in an
+  autonomous Track C it is settled too, but as a «Принятое решение» with the why
+  and the alternative, never silently
+- the Feature or its Tasks put to the user for agreement without their explicit
+  opt-in, or in an autonomous Track C a stop on anything but a true blocker
 - `ПАКЕТ ГОТОВ` written and `build-loop` left for a later turn
 - a study of a change touching stored state that never looked at the real data,
   and did not say so

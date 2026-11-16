@@ -46,6 +46,10 @@ every commit of the personal base into the review. If the resolver fails
 
 ```bash
 base="$(bash -c '. .claude/skills/commit-and-mr/lib.sh && resolve_task_base "$PWD" "$1"' _ "<repo>")"
+# A dependent PR (`wt new --base <parent PR branch>`) recorded its target: review
+# against it, so the parent PR's commits are not part of this review.
+rec="$(bash -c '. .claude/skills/commit-and-mr/lib.sh && recorded_task_base "$1" "$2"' _ "worktrees/<task>/<repo>" "$(git -C "worktrees/<task>/<repo>" branch --show-current)")"
+if [ -n "$rec" ] && git -C "worktrees/<task>/<repo>" ls-remote --exit-code --heads origin "$rec" >/dev/null 2>&1; then base="$rec"; fi
 git -C "worktrees/<task>/<repo>" fetch origin "$base" --quiet 2>/dev/null || true
 mb="$(git -C "worktrees/<task>/<repo>" merge-base HEAD "origin/$base" 2>/dev/null \
   || git -C "worktrees/<task>/<repo>" merge-base HEAD "$base")"

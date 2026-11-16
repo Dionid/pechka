@@ -124,7 +124,20 @@ self="${self%/}"
 # (unusable owner) only for a personalBase repo; callers assign its output
 # first so that failure stops them instead of becoming an empty `git log` range.
 # A task with no personalBase repo is not affected by the owner at all.
+#
+# base_of <repo-name> [<dir> <branch>] — with the checkout given, a base recorded
+# by `wt new --base` (a dependent PR) wins, so the author range excludes the
+# parent PR's commits; a recorded base with no ref in the checkout is ignored.
 base_of() {
+  local rec
+  if [[ -n "${2-}" && -n "${3-}" ]]; then
+    rec="$(recorded_task_base "$2" "$3" || true)"
+    if [[ -n "$rec" ]] && { git -C "$2" rev-parse --verify --quiet "origin/$rec" >/dev/null 2>&1 \
+      || git -C "$2" rev-parse --verify --quiet "$rec" >/dev/null 2>&1; }; then
+      printf '%s\n' "$rec"
+      return 0
+    fi
+  fi
   resolve_task_base "$workspace" "$1"
 }
 
@@ -283,7 +296,7 @@ if [[ "$mode" == "update" ]]; then
       continue
     fi
 
-    if ! base="$(base_of "$(basename "$rel")")"; then
+    if ! base="$(base_of "$(basename "$rel")" "$dir" "$branch")"; then
       printf 'FAILED=%s base\n' "$rel" >&2
       failed=$((failed + 1))
       continue
@@ -420,7 +433,7 @@ while read -r rel; do
   # Detached HEAD has no branch, so it has no PR to name.
   [[ -n "$branch" ]] || continue
 
-  base="$(base_of "$(basename "$rel")")" || exit 1
+  base="$(base_of "$(basename "$rel")" "$dir" "$branch")" || exit 1
   set_range "$dir" "$base"
 
   IFS=$'\t' read -r mr_url mr_state < <(mr_of "$repos_json" "worktrees/$task/$rel")
@@ -466,7 +479,7 @@ fi
 # some other checkout's author.
 author=""
 if ((self_index >= 0)); then
-  base="$(base_of "$(basename "$self")")" || exit 1
+  base="$(base_of "$(basename "$self")" "$task_dir/$self" "$(git -C "$task_dir/$self" branch --show-current 2>/dev/null || true)")" || exit 1
   set_range "$task_dir/$self" "$base"
   author="$(author_line "$task_dir/$self")"
 fi

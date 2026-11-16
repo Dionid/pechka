@@ -12,7 +12,8 @@ reserved ownership scopes — never in the canonical task worktree; if the promp
 names no checkout, write nothing and report it. Run `ownership.py check-write
 --agent-path <your agentPath> <path>` before writing a path you are unsure is yours. Your result
 returns to the parent as a patch that is checked against those scopes; any path
-outside them makes the whole patch fail. A parent may grant `delegating` capability only where the
+outside them makes the whole patch fail. If the task is a dependent PR (an open
+PR covers the same area), follow the «Зависимый PR» rule in `AGENTS.md`. A parent may grant `delegating` capability only where the
 Track, workflow stage, and depth allow it; otherwise do not spawn.
 
 Track A (architecture maps, documents, specs without implementation) is not

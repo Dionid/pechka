@@ -242,6 +242,18 @@ resolve_task_base() {
   printf '%s\n' "$base"
 }
 
+# recorded_task_base <worktree> <branch> — the PR target `wt new --base <b>`
+# recorded for a task branch started from another open PR's branch (a
+# dependent PR), or nothing. Stored as `branch.<branch>.workspaceBase` in the
+# repository's local config (shared by every worktree of it). A value equal to
+# the branch itself is ignored: it would be a PR into itself.
+recorded_task_base() {
+  local rec
+  rec="$(git -C "${1:?recorded_task_base: no worktree}" config --local --get "branch.${2:?recorded_task_base: no branch}.workspaceBase" 2>/dev/null || true)"
+  [[ -n "$rec" && "$rec" != "$2" ]] || return 0
+  printf '%s\n' "$rec"
+}
+
 # proj_of <worktree> — the GitHub project path of its `origin`, url-encoded.
 proj_of() {
   local remote

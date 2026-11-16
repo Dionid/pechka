@@ -7,7 +7,7 @@ usage() {
 Usage:
   run.sh --worktree <path> --repo <name> --message-file <path>
          (--mr-description-file <path> | --existing-mr | --no-mr)
-         [--mr-title <title>] [--draft] [--no-coauthor]
+         [--mr-title <title>] [--draft] [--no-coauthor] [--base <branch>]
          [--spec-change <name>] [--no-spec-link] [--no-task-link]
          [--transport auto|https]
          -- <path>...
@@ -49,6 +49,11 @@ What happens to the PR is settled before anything is staged or committed:
                           is added, case-insensitively once, only if the PR is
                           a draft; a non-draft keeps the title as given); without it the
                           existing title is kept
+  --base                  the branch the PR targets, overriding everything below.
+                          Without it: the base `wt new --base <PR branch>` recorded
+                          for the task (a dependent PR; if that branch is gone from
+                          origin, the default base is used with a note), else the
+                          repo's base / personal base <owner>-<base>
   --draft                 keep the default: create the PR as a draft
   --no-coauthor           do not append the Co-Authored-By trailer
   --spec-change           the change name, when the task has more than one active
@@ -78,6 +83,7 @@ spec_link=1
 task_link=1
 description_only=0
 transport=""
+base_override=""
 
 while (($# > 0)); do
   case "$1" in
@@ -105,6 +111,14 @@ while (($# > 0)); do
     --existing-mr)
       existing_mr=1
       shift
+      ;;
+    --base)
+      base_override="${2:-}"
+      if [[ -z "$base_override" ]]; then
+        echo "error: --base needs a branch name" >&2
+        exit 1
+      fi
+      shift 2
       ;;
     --draft)
       draft=1
@@ -314,9 +328,20 @@ proj="$PROJ_PATH"
 # <owner>-<base> for a "personalBase" repo with an owner — one resolver for wt,
 # adopt.sh, preflight.sh, task-link.sh and spec-trace (lib.sh).
 base="$(resolve_task_base "$workspace_root" "$repo")" || exit 1
+default_base="$base"
+# A dependent PR: the task was started from another open PR's branch
+# (`wt new --base <branch>`) and targets it. --base wins over the record.
+base_source=default
+if [[ -n "$base_override" ]]; then
+  base="$base_override"
+  base_source=flag
+elif recorded_base="$(recorded_task_base "$worktree" "$branch")" && [[ -n "$recorded_base" ]]; then
+  base="$recorded_base"
+  base_source=recorded
+fi
 
 # The personal base is a base branch too: work reaches it only through a PR.
-if [[ "$branch" == "$base" ]]; then
+if [[ "$branch" == "$base" || "$branch" == "$default_base" ]]; then
   echo "error: refusing to push base branch: $branch" >&2
   exit 1
 fi
@@ -475,6 +500,14 @@ fi
 
 # and sourcing it before the commit would export credentials into every
 gl_load "$workspace_root"
+if [[ "$base_source" == recorded ]]; then
+  # The parent PR merged and its branch was deleted: GitHub retargets the
+  # dependent PRs by itself, so fall back to the default base rather than fail.
+  if [[ "$(gl_remote_branch_state "$worktree" "$base" 2>/dev/null || true)" == absent ]]; then
+    echo "note: recorded base '$base' is gone from origin (parent PR merged?); targeting '$default_base'" >&2
+    base="$default_base"
+  fi
+fi
 gl_use "$PROJ_HOST"
 # A --description-only run made no commit, so it reports none.
 commit_sha=""

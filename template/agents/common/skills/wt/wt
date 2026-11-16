@@ -233,6 +233,12 @@ once, from origin/<base>, when it is missing — and commit-and-mr targets it.
 An explicit --base is used as is. Merging <owner>-<base> into <base> is a
 human's PR.
 
+Dependent PR: `--base <branch of an open PR>` (not the repo's own base) forks
+the task from that branch and records it as the task's PR target
+(`branch.<task branch>.workspaceBase` in the repo's local git config);
+commit-and-mr opens the PR into it. Merge the parent PR first. The staleness
+check still runs on that branch: use --allow-stale if packages/<repo> is not on it.
+
 Staleness flags for `new` (default: refuse and tell you to pull):
   --pull           fast-forward packages/<repo> to origin/<base> first
   --allow-stale    branch off origin/<base> anyway, keeping the old tree's deps
@@ -993,6 +999,21 @@ new_one() {
   mkdir -p "$(dirname "$wt_dir")"
   info "[$repo] creating worktree ${wt_dir} on ${branch} (off ${startpoint})"
   git -C "$ROOT/$repo" worktree add -b "$branch" "$wt_dir" "$startpoint" || return 1
+
+  # A dependent PR: --base names another open PR's branch, so this task's PR
+  # must target it. Recorded where commit-and-mr (recorded_task_base) reads it.
+  # Not recorded when --base is the repo's own base (nothing to override) or
+  # the branch itself (adopt.sh passes the adopted branch as the start point).
+  # Only repos named explicitly with --repo: "always" repos (specs) joining the
+  # run never carry the PR branch.
+  if [ -n "$FLAG_BASE" ] && printf '%s\n' "$FLAG_REPOS" | grep -Fxq -- "$repo"; then
+    local fb="${FLAG_BASE#origin/}" default_tb
+    default_tb="$(resolve_task_base "$SCRIPT_DIR" "$repo" "$(manifest_get "$repo" branch)" 2>/dev/null || true)"
+    if [ "$fb" != "$branch" ] && [ "$fb" != "$(manifest_get "$repo" branch)" ] && [ "$fb" != "$(default_base "$repo")" ] && [ "$fb" != "$default_tb" ]; then
+      git -C "$ROOT/$repo" config --local "branch.${branch}.workspaceBase" "$fb" \
+        && info "[$repo] PR target recorded: ${fb} (dependent PR; merge that PR first)"
+    fi
+  fi
 
   setup_env "$repo" "$wt_dir"
   setup_husky "$repo" "$wt_dir" || { err "[$repo] husky setup failed — worktree left at $wt_dir"; return 1; }

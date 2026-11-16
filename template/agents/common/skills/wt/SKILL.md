@@ -75,6 +75,13 @@ carries no sign of it — the file is there, the line number is plausible.
   is missing, and never moves an existing one. Never set or change the owner
   yourself, and never merge `<owner>-<base>` into `<base>` — that PR is the
   human's. Details: `WORKTREES.md`, «Личная база».
+- **Dependent PR.** An open PR touching the same area/code → `wt new <task>
+  --repo <r> --base <its branch> --allow-stale --no-always` (`--base` applies to every repo of the run and `always` repos lack that branch; open the knowledge/spec repo with a separate `wt new <task> --repo <it>`, as `adopt.sh` does). Besides the start point, `wt`
+  records that branch as the PR target (`branch.<task branch>.workspaceBase`
+  in the repo's local git config) and `commit-and-mr` opens the PR into it.
+  Nothing is recorded when `--base` is the repo's own base or the task branch
+  itself (`adopt.sh`). Report the parent PR; it merges first. Rule: `AGENTS.md`,
+  «Зависимый PR».
 - **Don't pass dependency flags unless asked.** `deps` and `postSetup` in
   `repos.json` already say what each repo needs.
 - A failing repo doesn't abort the others: read the `created:` / `failed:` lines

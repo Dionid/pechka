@@ -46,13 +46,23 @@ case "$rc" in
 esac
 branch="$(git -C "$worktree" branch --show-current 2>/dev/null || true)"
 # The PR target run.sh will use — the shared resolver, personal base included.
-base=''
+base=''; default_base=''
 if [[ -n "$repo" ]]; then
-  if base="$(resolve_task_base "$root" "$repo")"; then note "BASE=$base";
+  if base="$(resolve_task_base "$root" "$repo")"; then
+    rec="$(recorded_task_base "$worktree" "$branch" || true)"
+    if [[ -n "$rec" ]]; then
+      # Same fallback as run.sh: a recorded base gone from origin (parent PR
+      # merged) means the default base, with a note.
+      if [[ "$(gl_remote_branch_state "$worktree" "$rec" 2>/dev/null || true)" == absent ]]; then
+        note "BASE=$base NOTE recorded base '$rec' is gone from origin; default base used"
+      else
+        default_base="$base"; base="$rec"; note "BASE=$base (recorded by wt new --base)"
+      fi
+    else note "BASE=$base"; fi
   else fail 'BASE=invalid-owner'; fi
 fi
 if [[ -z "$branch" ]]; then fail 'PUSH=detached';
-elif [[ -n "$base" && "$branch" == "$base" ]]; then fail "PUSH=base-branch $branch";
+elif [[ -n "$base" && ( "$branch" == "$base" || "$branch" == "${default_base:-}" ) ]]; then fail "PUSH=base-branch $branch";
 elif ((failed == 0)); then
   if gl_push "$worktree" "$branch" --dry-run; then note "PUSH=ok $branch (${GL_TRANSPORT:-none})";
   else fail 'PUSH=failed'; fi
